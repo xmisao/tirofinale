@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+require 'open-uri'
+
+gem_name = ARGV[0]
+
+alpine_version = "3.4-stable"
+
+apkbuild_url = "http://git.alpinelinux.org/cgit/aports/plain/unmaintained/ruby-#{gem_name}/APKBUILD?h=#{alpine_version}"
+
+apkbuild = open(apkbuild_url){|f| f.read}
+
+makedepends = apkbuild.match(/^makedepends="(.*?)"/).to_a[1].strip.split(' ')
+
+print makedepends.join(' ')
