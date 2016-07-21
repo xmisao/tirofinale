@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+#
+require 'open-uri'
 
 def detect_version_alpine
   content = open('/etc/alpine-release'){|f| f.read }
@@ -6,15 +8,24 @@ def detect_version_alpine
   major_minor ? major_minor[1] : nil
 end
 
-require 'open-uri'
+def search_apkbuild(gem_name, alpine_version)
+  dir_list = ['community', 'main', 'non-free', 'testing', 'unmaintained']
+  dir_list.each{|dir_name|
+    apkbuild_url = "http://git.alpinelinux.org/cgit/aports/plain/#{dir_name}/ruby-#{gem_name}/APKBUILD?h=#{alpine_version + '-stable'}"
+    begin
+      return open(apkbuild_url){|f| f.read}
+    rescue OpenURI::HTTPError => e
+      next
+    end
+  }
+  false
+end
 
 gem_name = ARGV[0]
 
 alpine_version = detect_version_alpine()
 
-apkbuild_url = "http://git.alpinelinux.org/cgit/aports/plain/unmaintained/ruby-#{gem_name}/APKBUILD?h=#{alpine_version + '-stable'}"
-
-apkbuild = open(apkbuild_url){|f| f.read}
+apkbuild = search_apkbuild(gem_name, alpine_version)
 
 makedepends = apkbuild.match(/^makedepends="(.*?)"/).to_a[1].strip.split(' ')
 
