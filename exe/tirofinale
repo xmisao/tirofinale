@@ -1,12 +1,18 @@
 #!/usr/bin/env ruby
 
+def detect_version_alpine
+  content = open('/etc/alpine-release'){|f| f.read }
+  major_minor = content.match(/\a(\d\.\d)/)
+  major_minor ? major_minor[1] : nil
+end
+
 require 'open-uri'
 
 gem_name = ARGV[0]
 
-alpine_version = "3.4-stable"
+alpine_version = detect_version_alpine()
 
-apkbuild_url = "http://git.alpinelinux.org/cgit/aports/plain/unmaintained/ruby-#{gem_name}/APKBUILD?h=#{alpine_version}"
+apkbuild_url = "http://git.alpinelinux.org/cgit/aports/plain/unmaintained/ruby-#{gem_name}/APKBUILD?h=#{alpine_version + '-stable'}"
 
 apkbuild = open(apkbuild_url){|f| f.read}
 
