@@ -2,7 +2,7 @@
 
 def detect_version_alpine
   content = open('/etc/alpine-release'){|f| f.read }
-  major_minor = content.match(/\a(\d\.\d)/)
+  major_minor = content.match(/\A(\d\.\d)/)
   major_minor ? major_minor[1] : nil
 end
 
