@@ -12,7 +12,7 @@ This is experimental gem and not work fine yet for any enviroment and gem.
 
 ## Usage
 
-On Alpine Linux v3.4 only.
+On Alpine Linux from v1.10 to v3.4 only.
 
 Show packages which is required to build `nokogiri` gem.
 
