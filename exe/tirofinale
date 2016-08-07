@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
-#
 require 'open-uri'
+require 'optparse'
+require 'pp'
 
 def detect_version_alpine
   content = open('/etc/alpine-release'){|f| f.read }
@@ -21,12 +22,53 @@ def search_apkbuild(gem_name, alpine_version)
   false
 end
 
-gem_name = ARGV[0]
+def extract_makedepends(apkbuild)
+  variables = []
 
-alpine_version = detect_version_alpine()
+  apkbuild.each_line{|l|
+    if m = l.match(/^([^\s]+)=(.*)$/)
+      key = m[1]
+      value = m[2]
+
+      variables << {:key => key, :value => value}
+    end
+  }
+
+  variables.sort_by!{|var| var[:key].length * -1}
+
+  variables.each{|var|
+    if m = var[:value].match(/^"(.*)"$/)
+      var[:value] = m[1]
+    end
+  }
+
+  variables.each{|var|
+    while var[:value].include?('$')
+      result = nil
+      variables.each{|var2|
+        result = result || var[:value].gsub!("$#{var2[:key]}", var2[:value])
+      }
+      break unless result
+    end
+  }
+
+  variables.select{|var| var[:key] == 'makedepends'}.first[:value]
+end
+
+alpine_version = nil
+gem_name = nil
+
+op = OptionParser.new
+op.on('--dist-version VERSION'){|val| alpine_version = val}
+op.on('--gem GEM_NAME'){|val| gem_name = val}
+op.parse(ARGV)
+
+alpine_version ||= detect_version_alpine()
 
 apkbuild = search_apkbuild(gem_name, alpine_version)
 
-makedepends = apkbuild.match(/^makedepends="(.*?)"/).to_a[1].strip.split(' ')
+makedepends = extract_makedepends(apkbuild)
 
-print makedepends.join(' ')
+packages = makedepends.strip.split(' ')
+
+print packages.join(' ')
