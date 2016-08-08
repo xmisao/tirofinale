@@ -1,7 +1,10 @@
 #!/usr/bin/env ruby
 require 'open-uri'
 require 'optparse'
-require 'pp'
+require 'yaml'
+require 'logger'
+
+$logger = Logger.new(STDERR)
 
 def detect_version_alpine
   content = open('/etc/alpine-release'){|f| f.read }
@@ -55,20 +58,82 @@ def extract_makedepends(apkbuild)
   variables.select{|var| var[:key] == 'makedepends'}.first[:value]
 end
 
+def fetch_dep_gems(gem_name, checked = [], level = 0)
+  $logger.debug("fetch_dep_gems(). Args:[#{[gem_name, checked, level].join(', ')}]")
+
+  if level > 10
+    return []
+  end
+
+  dep_gems = []
+
+  url = "https://rubygems.org/api/v1/gems/#{gem_name}.yaml"
+  runtime_dep = open(url){|f|
+    YAML.load(f.read)['dependencies']['runtime'].map{|dep| dep['name']}
+  }
+
+  dep_gems.push(*runtime_dep)
+  checked << gem_name
+
+  runtime_dep.each{|dep|
+    unless checked.include?(dep)
+      dep_gems.push(*fetch_dep_gems(dep, checked, level + 1))
+    end
+  }
+
+  dep_gems.uniq 
+
+  $logger.info("Gem '#{gem_name}' depends on [#{dep_gems.join(', ')}]")
+
+  dep_gems
+end
+
+def fetch_build_dep_packages_alpine(gem_name, alpine_version)
+  $logger.info("Fetch Alpine Linux #{alpine_version} dependency packages to build '#{gem_name}'.")
+  apkbuild = search_apkbuild(gem_name, alpine_version)
+  unless apkbuild
+    $logger.warn("Alpine Linux does not have binary package for '#{gem_name}'.")
+    return []
+  end
+  makedepends = extract_makedepends(apkbuild)
+  packages = makedepends.strip.split(' ')
+  $logger.info("Alpine Linux build dependency packages [#{packages.join(', ')}] for #{gem_name}")
+  packages
+rescue => e
+  $logger.error(e.inspect)
+  $logger.error(e.backtrace)
+  raise e
+end
+
 alpine_version = nil
 gem_name = nil
+dependency = false
 
 op = OptionParser.new
+op.on('--dependency'){|val| dependency = true}
 op.on('--dist-version VERSION'){|val| alpine_version = val}
 op.on('--gem GEM_NAME'){|val| gem_name = val}
 op.parse(ARGV)
 
+$logger.info "Tirofinale start with [#{[alpine_version, gem_name, dependency].join(', ')}]."
+
 alpine_version ||= detect_version_alpine()
 
-apkbuild = search_apkbuild(gem_name, alpine_version)
+packages = fetch_build_dep_packages_alpine(gem_name, alpine_version)
 
-makedepends = extract_makedepends(apkbuild)
+if dependency
+  dep_gem_list = fetch_dep_gems(gem_name)
 
-packages = makedepends.strip.split(' ')
+  dep_gem_list.each{|dep_gem_name|
+    dep_packages = fetch_build_dep_packages_alpine(dep_gem_name, alpine_version)
+    packages.push(*dep_packages) unless dep_packages.empty?
+  }
+
+  packages.uniq!
+end
+
+$logger.info("This environment require packages [#{packages.join(', ')}] to install gem '#{gem_name}'.")
 
 print packages.join(' ')
+
+$logger.info "Tirofinale done."
