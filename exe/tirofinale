@@ -28,34 +28,29 @@ end
 def extract_makedepends(apkbuild)
   variables = []
 
-  apkbuild.each_line{|l|
-    if m = l.match(/^([^\s]+)=(.*)$/)
-      key = m[1]
-      value = m[2]
-
-      variables << {:key => key, :value => value}
-    end
+  # extract quoted variable
+  apkbuild.scan(/^([a-z_]+)="(.*?)"/m){|m|
+    variables << ({:name => m[0], :value => m[1].gsub(/\s+/, ' ')})
   }
 
-  variables.sort_by!{|var| var[:key].length * -1}
-
-  variables.each{|var|
-    if m = var[:value].match(/^"(.*)"$/)
-      var[:value] = m[1]
-    end
+  # extract not quoted variable
+  apkbuild.scan(/^([a-z_]+)=([^"]*?)$/){|m|
+    variables << ({:name => m[0], :value => m[1].gsub(/\s+/, ' ')})
   }
+
+  variables.sort_by!{|var| var[:name].length * -1}
 
   variables.each{|var|
     while var[:value].include?('$')
       result = nil
       variables.each{|var2|
-        result = result || var[:value].gsub!("$#{var2[:key]}", var2[:value])
+        result = result || var[:value].gsub!("$#{var2[:name]}", var2[:value])
       }
       break unless result
     end
   }
 
-  variables.select{|var| var[:key] == 'makedepends'}.first[:value]
+  variables.select{|var| var[:name] == 'makedepends'}.first[:value]
 end
 
 def fetch_dep_gems(gem_name, checked = [], level = 0)
