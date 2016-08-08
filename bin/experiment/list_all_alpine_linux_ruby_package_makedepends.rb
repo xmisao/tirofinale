@@ -1,5 +1,6 @@
-load '../../exe/tirofinale'
 require 'pp'
+require_relative '../../lib/tirofinale'
+include Tirofinale
 
 path_to_aports = ARGV[0]
 
