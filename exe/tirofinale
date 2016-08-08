@@ -4,7 +4,13 @@ require 'optparse'
 require 'yaml'
 require 'logger'
 
-$logger = Logger.new(STDERR)
+def init_logger
+  $logger = Logger.new(STDERR)
+  $logger.level = 4
+  if level = ENV['LOG_LEVEL']
+    $logger.level = level.to_i
+  end
+end
 
 def detect_version_alpine
   content = open('/etc/alpine-release'){|f| f.read }
@@ -78,7 +84,7 @@ def fetch_dep_gems(gem_name, checked = [], level = 0)
 
   dep_gems.uniq 
 
-  $logger.info("Gem '#{gem_name}' depends on [#{dep_gems.join(', ')}]")
+  $logger.info("Gem '#{gem_name}' depends on [#{dep_gems.join(', ')}].")
 
   dep_gems
 end
@@ -92,7 +98,7 @@ def fetch_build_dep_packages_alpine(gem_name, alpine_version)
   end
   makedepends = extract_makedepends(apkbuild)
   packages = makedepends.strip.split(' ')
-  $logger.info("Alpine Linux build dependency packages [#{packages.join(', ')}] for #{gem_name}")
+  $logger.info("Alpine Linux build dependency packages [#{packages.join(', ')}] for '#{gem_name}'.")
   packages
 rescue => e
   $logger.error(e.inspect)
@@ -100,35 +106,47 @@ rescue => e
   raise e
 end
 
-alpine_version = nil
-gem_name = nil
-dependency = false
+def run
+  init_logger()
 
-op = OptionParser.new
-op.on('--dependency'){|val| dependency = true}
-op.on('--dist-version VERSION'){|val| alpine_version = val}
-op.on('--gem GEM_NAME'){|val| gem_name = val}
-op.parse(ARGV)
+  opts = {}
 
-$logger.info "Tirofinale start with [#{[alpine_version, gem_name, dependency].join(', ')}]."
+  op = OptionParser.new
+  op.on('--dependency'){|val| opts[:dependency] = true}
+  op.on('--dist-version VERSION'){|val| opts[:alpine_version] = val}
+  op.on('--gem GEM_NAME'){|val| opts[:gem_name] = val}
+  op.parse(ARGV)
 
-alpine_version ||= detect_version_alpine()
+  $logger.info "Tirofinale start with #{opts}."
 
-packages = fetch_build_dep_packages_alpine(gem_name, alpine_version)
+  alpine_version = opts[:alpine_version]
+  gem_name = opts[:gem_name]
+  dependency = opts[:dependency]
 
-if dependency
-  dep_gem_list = fetch_dep_gems(gem_name)
+  unless alpine_version
+    $logger.info('Attempt to auto detect Alpine Linux version.')
+    alpine_version = detect_version_alpine()
+    $logger.info("Alpine Linux version '#{alpine_version}' was detected.")
+  end
 
-  dep_gem_list.each{|dep_gem_name|
-    dep_packages = fetch_build_dep_packages_alpine(dep_gem_name, alpine_version)
-    packages.push(*dep_packages) unless dep_packages.empty?
-  }
+  packages = fetch_build_dep_packages_alpine(gem_name, alpine_version)
 
-  packages.uniq!
+  if dependency
+    dep_gem_list = fetch_dep_gems(gem_name)
+
+    dep_gem_list.each{|dep_gem_name|
+      dep_packages = fetch_build_dep_packages_alpine(dep_gem_name, alpine_version)
+      packages.push(*dep_packages) unless dep_packages.empty?
+    }
+
+    packages.uniq!
+  end
+
+  $logger.info("This environment require packages [#{packages.join(', ')}] to install gem '#{gem_name}'.")
+
+  print packages.join(' ')
+
+  $logger.info "Tirofinale done."
 end
 
-$logger.info("This environment require packages [#{packages.join(', ')}] to install gem '#{gem_name}'.")
-
-print packages.join(' ')
-
-$logger.info "Tirofinale done."
+run()
