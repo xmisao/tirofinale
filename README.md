@@ -26,14 +26,15 @@ Usage: tirofinale [options]
         --debug-local-aports PATH
 ~~~~
 
-Default output format is optimized to shell.
-You can install required packages to install `nokogiri` gem by `apk` command following line.
+Default output format is optimized for shell.
+You can install required packages to install `nokogiri` gem following lines.
 
 ~~~~
 # apk add `tirofinale --gem nokogiri`
+# gem install nokogiri # successful!
 ~~~~
 
-Human readable output gettable by `--pretty-print` option.
+Human friendry output format gettable by specifying `--pretty-print` option.
 
 ~~~~
 $ tirofinale --gem nokogiri --pretty-print
@@ -43,18 +44,19 @@ This environment require following packages to install gem 'nokogiri'.
     libxslt-dev
 ~~~~
 
-Distribution version is detected automatically when you run `tirofinale` on Alpine Linux environment.
-If you specify version manually, you can use `--dist-version VERSION` option.
-The following line show packages which are required to build `nokogiri` gem on Alpine Linux v3.4 on any environment.
+Tirofinale read `/etc/alpine-release` file and detect Alpine Linux version automatically.
+If you want to specify version manually, you can use `--dist-version VERSION` option.
 
 ~~~~
 $ tirofinale --dist-version 3.4 --gem nokogiri
 ~~~~
 
-Dependency of gem to gems will be resolved by Tirofinale's `--dependency` option.
+Tirofinale resolve dependency of a gem to gems when specify `--dependency` option.
+
 For example, `thin` gem depends on `daemons` gem, `eventmachine` gem and `rack` gem.
-And, `openssl-dev` package is required to build `eventmachine` on Alpine Linux.
-In folowing example, Tirofinale show distribution packages dependent by `thin` gem and `thin` gem depdns on gems.
+`openssl-dev` package is required to install `eventmachine` gem on Alpine Linux.
+
+Folowing example, Tirofinale show distribution packages required by installing `thin` gem and `thin` gem depends to gems.
 
 ~~~~
 $ tirofinale --gem thin --dependency --pretty-print
